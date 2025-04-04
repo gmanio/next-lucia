@@ -3,27 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "NODE_OPTIONS='--inspect' next dev --turbopack -p 3001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@auth/typeorm-adapter": "2.8.0",
+    "@lucia-auth/adapter-mysql": "3.0.2",
     "arctic": "3.5.0",
+    "jsencrypt": "3.3.2",
     "lucia": "3.2.2",
+    "mysql": "2.18.1",
     "next": "15.2.1",
+    "next-auth": "5.0.0-beta.25",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "typeorm": "0.3.21"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/mysql": "2.15.27",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.1",
+    "mysql2": "3.14.0",
     "tailwindcss": "^4",
+    "typeorm-naming-strategies": "4.1.0",
     "typescript": "^5"
   }
 }

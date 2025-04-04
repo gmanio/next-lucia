@@ -1,5 +1,10 @@
 // import { Kakao as KakaoProvider } from "arctic";
+
+import { connection } from "@/lib";
+import { TypeORMAdapter } from "@auth/typeorm-adapter";
 import * as arctic from "arctic";
+import { generateId } from "lucia";
+import { AdapterAccount, AdapterUser } from "next-auth/adapters";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -21,20 +26,40 @@ export async function GET(request: Request): Promise<Response> {
     const userProfile = tokens.data;
     const accessTokenExpiresAt = tokens.accessTokenExpiresAt();
     const refreshToken = tokens.refreshToken();
+    const adapter = TypeORMAdapter(connection);
+
     const response = await fetch(KakaoUserMeApi, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
     const loggedInUser = await response.json();
-    // TODO: implement session
+    // // TODO: implement session
     const redirect = NextResponse.redirect("http://localhost:3001/login", {
       status: 302,
     });
 
-    console.log(userProfile);
-    console.log(loggedInUser);
-    console.log(refreshToken);
+    // const user = await adapter.getUserByEmail(loggedInUser.kakao_account.email);
+    const user: AdapterUser & { phoneVerified: null | Date } = {
+      email: loggedInUser.kakao_account.email,
+      emailVerified: null,
+      id: generateId(15),
+      phoneVerified: new Date(),
+      name: loggedInUser.kakao_account.profile.nickname,
+      image: loggedInUser.kakao_account.profile.thumbnail_image_url,
+    };
+
+    const res = await (adapter.createUser && adapter.createUser(user));
+    // const authenticator = adapter.createAuthenticator({ id: "123456" });
+    const account: AdapterAccount = {
+      userId: user.id,
+      type: "email",
+      provider: "kakao",
+      providerAccountId: loggedInUser.id,
+    };
+    const resp = await (adapter?.linkAccount && adapter.linkAccount(account));
+    console.log(resp);
+    debugger;
 
     // await redirect.cookies.set("rtk", refreshToken, {
     //   httpOnly: true,

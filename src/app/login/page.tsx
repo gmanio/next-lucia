@@ -9,7 +9,6 @@ const Page = () => {
           const clientId = process.env.NEXT_PUBLIC_KAKAO_LOGIN_CLIENT_ID ?? "";
           const redirectURI =
             process.env.NEXT_PUBLIC_KAKAO_LOGIN_REDIRECT_URL || "";
-
           const searchParams = new URLSearchParams();
           searchParams.append("response_type", "code");
           searchParams.append("client_id", clientId);
