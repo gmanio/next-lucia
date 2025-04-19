@@ -18,11 +18,5 @@ const adapter = new Mysql2Adapter(pool, {
 // curl --request POST http://localhost:3000/v1/user/create
 
 export async function POST(request: Request): Promise<Response> {
-  const lucia = new Lucia(adapter);
-  const id = generateId(15);
-  // const session = await lucia.createSession(id, {});
-
-  //   const session = lucia.getUserSessions("");
-  //   console.log(session);
   return NextResponse.json({ data: id }, { status: 200 });
 }

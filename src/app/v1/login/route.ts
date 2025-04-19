@@ -1,6 +1,6 @@
 // import { Kakao as KakaoProvider } from "arctic";
 
-import { connection } from "@/lib";
+import { AppDataSource, connection, UserEntity } from "@/lib";
 import { TypeORMAdapter } from "@auth/typeorm-adapter";
 import * as arctic from "arctic";
 import { generateId } from "lucia";
@@ -39,27 +39,90 @@ export async function GET(request: Request): Promise<Response> {
       status: 302,
     });
 
-    // const user = await adapter.getUserByEmail(loggedInUser.kakao_account.email);
-    const user: AdapterUser & { phoneVerified: null | Date } = {
-      email: loggedInUser.kakao_account.email,
-      emailVerified: null,
-      id: generateId(15),
-      phoneVerified: new Date(),
-      name: loggedInUser.kakao_account.profile.nickname,
-      image: loggedInUser.kakao_account.profile.thumbnail_image_url,
-    };
+    if (adapter && adapter?.getUserByEmail) {
+      const user = await adapter.getUserByEmail(
+        loggedInUser.kakao_account.email
+      );
+      console.log(user);
 
-    const res = await (adapter.createUser && adapter.createUser(user));
-    // const authenticator = adapter.createAuthenticator({ id: "123456" });
-    const account: AdapterAccount = {
-      userId: user.id,
-      type: "email",
-      provider: "kakao",
-      providerAccountId: loggedInUser.id,
-    };
-    const resp = await (adapter?.linkAccount && adapter.linkAccount(account));
-    console.log(resp);
-    debugger;
+      if (user) {
+        const account: AdapterAccount = {
+          userId: user.id,
+          type: "email",
+          provider: "kakao",
+          providerAccountId: loggedInUser.id,
+        };
+        const resp = await (adapter?.linkAccount &&
+          adapter.linkAccount(account));
+        console.log(resp);
+      }
+
+      if (!user) {
+        try {
+          if (AppDataSource.isInitialized === false) {
+            await AppDataSource.initialize();
+          }
+
+          const createUser: AdapterUser & { phoneVerified: null | Date } = {
+            email: loggedInUser.kakao_account.email,
+            emailVerified: null,
+            id: generateId(15),
+            phoneVerified: new Date(),
+            name: loggedInUser.kakao_account.profile.nickname,
+            image: loggedInUser.kakao_account.profile.thumbnail_image_url,
+          };
+          const user = await AppDataSource.createQueryBuilder()
+            .insert()
+            .into(UserEntity)
+            .values({
+              id: createUser.id,
+              name: createUser.name,
+              email: createUser.email,
+              emailVerified: new Date().toISOString(),
+              phone: null,
+              phoneVerified: new Date().toISOString(),
+              image: createUser.image,
+              role: null,
+            })
+            .execute();
+
+          console.log(user);
+
+          const account: AdapterAccount = {
+            userId: user.id,
+            type: "email",
+            provider: "kakao",
+            providerAccountId: loggedInUser.id,
+          };
+          const resp = await (adapter?.linkAccount &&
+            adapter.linkAccount(account));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    // const user = data[0];
+
+    // if (!user) {
+    //   return {
+    //     message: "An error occurred while creating your account.",
+    //   };
+    // }
+
+    // const res = await (adapter.createUser && adapter.createUser(user));
+    // if (res?.id) {
+    //   await (adapter.updateUser &&
+    //     adapter.updateUser({
+    //       id: res.id,
+    //       emailVerified: new Date(),
+    //       phoneVerified: new Date(),
+    //     } as Partial<AdapterUser> & Pick<AdapterUser, "id">));
+    // }
+
+    // // const authenticator = adapter.createAuthenticator({ id: "123456" });
+
+    // debugger;
 
     // await redirect.cookies.set("rtk", refreshToken, {
     //   httpOnly: true,
