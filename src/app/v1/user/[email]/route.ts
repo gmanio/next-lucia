@@ -4,14 +4,13 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ email: string }> }
 ): Promise<Response> {
-  request.json();
+  const data = request.json();
   const headersList = await headers();
   const referer = headersList.get("referer");
   console.log(referer);
-  // request.url.searchParams.get("id");
-  const { id } = await params; // 'a', 'b', or 'c'
+  const { email } = await params; // 'a', 'b', or 'c'
 
   let user = null;
   try {
@@ -21,7 +20,7 @@ export async function GET(
 
     user = await AppDataSource.getRepository(UserEntity).findOne({
       where: {
-        id: id,
+        email: email,
       },
     });
 

@@ -4,6 +4,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
   ValueTransformer,
 } from "typeorm";
 
@@ -46,6 +47,13 @@ export class UserEntity {
 
   @OneToMany(() => AccountEntity, (account) => account.userId)
   accounts!: AccountEntity[];
+
+  @UpdateDateColumn({
+    name: "updated_at",
+    type: "timestamp",
+    default: () => "CURRENT_TIMESTAMP(6)",
+  })
+  updatedAt!: Date;
 }
 
 @Entity({ name: "accounts" })
@@ -100,4 +108,11 @@ export class AccountEntity {
     createForeignKeyConstraints: true,
   })
   user!: UserEntity;
+
+  @UpdateDateColumn({
+    name: "updated_at",
+    type: "timestamp",
+    default: () => "CURRENT_TIMESTAMP(6)",
+  })
+  updatedAt!: Date;
 }

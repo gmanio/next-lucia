@@ -46,58 +46,62 @@ export async function GET(request: Request): Promise<Response> {
       console.log(user);
 
       if (user) {
-        const account: AdapterAccount = {
-          userId: user.id,
-          type: "email",
-          provider: "kakao",
-          providerAccountId: loggedInUser.id,
-        };
-        const resp = await (adapter?.linkAccount &&
-          adapter.linkAccount(account));
-        console.log(resp);
+        // const account: AdapterAccount = {
+        //   userId: user.id,
+        //   type: "email",
+        //   provider: "kakao",
+        //   providerAccountId: loggedInUser.id,
+        // };
+        // const resp = await (adapter?.linkAccount &&
+        //   adapter.linkAccount(account));
       }
 
       if (!user) {
         try {
-          if (AppDataSource.isInitialized === false) {
-            await AppDataSource.initialize();
-          }
+          const resp = await fetch("http://localhost:3001/v1/user/create", {
+            method: "POST",
+            body: JSON.stringify(loggedInUser),
+          });
+          // if (AppDataSource.isInitialized === false) {
+          //   await AppDataSource.initialize();
+          // }
 
-          const createUser: AdapterUser & { phoneVerified: null | Date } = {
-            email: loggedInUser.kakao_account.email,
-            emailVerified: null,
-            id: generateId(15),
-            phoneVerified: new Date(),
-            name: loggedInUser.kakao_account.profile.nickname,
-            image: loggedInUser.kakao_account.profile.thumbnail_image_url,
-          };
-          const user = await AppDataSource.createQueryBuilder()
-            .insert()
-            .into(UserEntity)
-            .values({
-              id: createUser.id,
-              name: createUser.name,
-              email: createUser.email,
-              emailVerified: new Date().toISOString(),
-              phone: null,
-              phoneVerified: new Date().toISOString(),
-              image: createUser.image,
-              role: null,
-            })
-            .execute();
+          // const createUser: AdapterUser & { phoneVerified: null | Date } = {
+          //   email: loggedInUser.kakao_account.email,
+          //   emailVerified: null,
+          //   id: generateId(15),
+          //   phoneVerified: new Date(),
+          //   name: loggedInUser.kakao_account.profile.nickname,
+          //   image: loggedInUser.kakao_account.profile.thumbnail_image_url,
+          // };
+          // const user = await AppDataSource.createQueryBuilder()
+          //   .insert()
+          //   .into(UserEntity)
+          //   .values({
+          //     id: createUser.id,
+          //     name: createUser.name,
+          //     email: createUser.email,
+          //     emailVerified: new Date().toISOString(),
+          //     phone: null,
+          //     phoneVerified: new Date().toISOString(),
+          //     image: createUser.image,
+          //     role: null,
+          //   })
+          //   .execute();
 
-          console.log(user);
+          // console.log(user);
 
-          const account: AdapterAccount = {
-            userId: user.id,
-            type: "email",
-            provider: "kakao",
-            providerAccountId: loggedInUser.id,
-          };
-          const resp = await (adapter?.linkAccount &&
-            adapter.linkAccount(account));
+          // const account: AdapterAccount = {
+          //   userId: user.id,
+          //   type: "email",
+          //   provider: "kakao",
+          //   providerAccountId: loggedInUser.id,
+          // };
+          // const resp = await (adapter?.linkAccount &&
+          //   adapter.linkAccount(account));
+          // return NextResponse.json(resp, { status: 200 });
         } catch (e) {
-          console.error(e);
+          return NextResponse.json({ data: e }, { status: 500 });
         }
       }
     }
