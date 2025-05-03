@@ -3,11 +3,10 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ email: string }> }
 ): Promise<Response> {
-  const data = request.json();
-  console.log(data);
+  // const data = request.json();
   const headersList = await headers();
   const referer = headersList.get("referer");
   console.log(referer);

@@ -13,6 +13,8 @@
     "@lucia-auth/adapter-mysql": "3.0.2",
     "arctic": "3.5.0",
     "jsencrypt": "3.3.2",
+    "jsonwebtoken": "9.0.2",
+    "ky": "1.8.1",
     "lucia": "3.2.2",
     "mysql": "2.18.1",
     "next": "^15",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "9.0.9",
     "@types/mysql": "2.15.27",
     "@types/node": "^20",
     "@types/react": "^19",

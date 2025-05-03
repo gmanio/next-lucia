@@ -1,16 +1,17 @@
 // import { Kakao as KakaoProvider } from "arctic";
 
-import { AppDataSource, connection, UserEntity } from "@/lib";
+import { KakaoUser } from "@/@types";
+import { connection } from "@/lib";
 import { TypeORMAdapter } from "@auth/typeorm-adapter";
 import * as arctic from "arctic";
-import { generateId } from "lucia";
 import { AdapterAccount, AdapterUser } from "next-auth/adapters";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import JWT from "jsonwebtoken";
 
 export const KakaoUserMeApi = "https://kapi.kakao.com/v2/user/me";
 
-export async function GET(request: Request): Promise<Response> {
+export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = (await url.searchParams.get("code")) ?? "";
   // const state = url.searchParams.get("state") ?? "";
@@ -21,31 +22,113 @@ export async function GET(request: Request): Promise<Response> {
   const redirectURI = process.env.NEXT_PUBLIC_KAKAO_LOGIN_REDIRECT_URL || "";
   const kakaoProvider = new arctic.Kakao(clientId, clientSecret, redirectURI);
   try {
-    const tokens = await kakaoProvider.validateAuthorizationCode(code);
-    const accessToken = tokens.accessToken();
-    const userProfile = tokens.data;
-    const accessTokenExpiresAt = tokens.accessTokenExpiresAt();
-    const refreshToken = tokens.refreshToken();
-    const adapter = TypeORMAdapter(connection);
+    const kakaoToken = await kakaoProvider.validateAuthorizationCode(code);
+    const kakaoAccessToken = kakaoToken.accessToken();
+    // const userProfile = kakaoToken.data;
+    // const accessTokenExpiresAt = kakaoToken.accessTokenExpiresAt();
+    // const refreshToken = kakaoToken.refreshToken();
 
-    const response = await fetch(KakaoUserMeApi, {
+    const userMeApiResponse = await fetch(KakaoUserMeApi, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${kakaoAccessToken}`,
       },
     });
-    const loggedInUser = await response.json();
+    const loggedInUser: KakaoUser = await userMeApiResponse.json();
+    // console.log(loggedInUser);
     // // TODO: implement session
     const redirect = NextResponse.redirect("http://localhost:3001/login", {
       status: 302,
     });
 
+    const adapter = TypeORMAdapter(connection);
+
     if (adapter && adapter?.getUserByEmail) {
       const user = await adapter.getUserByEmail(
         loggedInUser.kakao_account.email
       );
-      console.log(user);
-
       if (user) {
+        if (adapter?.updateUser) {
+          await adapter?.updateUser({
+            id: user.id,
+            image: loggedInUser.kakao_account.profile.thumbnail_image_url,
+          });
+        }
+
+        if (adapter.unlinkAccount) {
+          await adapter.unlinkAccount({
+            provider: "kakao",
+            providerAccountId: loggedInUser.id,
+          });
+
+          const access_token = JWT.sign({ email: user.email }, user.id, {
+            expiresIn: "1d",
+          });
+          const refresh_token = JWT.sign({}, user.id, {
+            expiresIn: "10d",
+          });
+
+          const account: AdapterAccount = {
+            userId: user.id,
+            type: "email",
+            provider: "kakao",
+            providerAccountId: loggedInUser.id,
+            access_token: access_token,
+            refresh_token: refresh_token,
+          };
+
+          if (adapter.linkAccount) {
+            const resp = await adapter.linkAccount(account);
+            console.log("linkedAccount", resp);
+          }
+
+          await redirect.cookies.set("atk", access_token, {
+            httpOnly: false,
+            path: "/",
+            secure: false,
+            sameSite: "lax",
+          });
+
+          return redirect;
+        }
+      }
+
+      if (!user) {
+        const resp: { account: AdapterAccount; user: AdapterUser } = await (
+          await fetch("http://localhost:3001/v1/user/create", {
+            method: "POST",
+            body: JSON.stringify(loggedInUser),
+          })
+        ).json();
+        console.log(resp);
+        // if (AppDataSource.isInitialized === false) {
+        //   await AppDataSource.initialize();
+        // }
+
+        // const createUser: AdapterUser & { phoneVerified: null | Date } = {
+        //   email: loggedInUser.kakao_account.email,
+        //   emailVerified: null,
+        //   id: generateId(15),
+        //   phoneVerified: new Date(),
+        //   name: loggedInUser.kakao_account.profile.nickname,
+        //   image: loggedInUser.kakao_account.profile.thumbnail_image_url,
+        // };
+        // const user = await AppDataSource.createQueryBuilder()
+        //   .insert()
+        //   .into(UserEntity)
+        //   .values({
+        //     id: createUser.id,
+        //     name: createUser.name,
+        //     email: createUser.email,
+        //     emailVerified: new Date().toISOString(),
+        //     phone: null,
+        //     phoneVerified: new Date().toISOString(),
+        //     image: createUser.image,
+        //     role: null,
+        //   })
+        //   .execute();
+
+        // console.log(user);
+
         // const account: AdapterAccount = {
         //   userId: user.id,
         //   type: "email",
@@ -54,55 +137,16 @@ export async function GET(request: Request): Promise<Response> {
         // };
         // const resp = await (adapter?.linkAccount &&
         //   adapter.linkAccount(account));
-      }
+        // return NextuserMeApiResponse.json(resp, { status: 200 });
+        // console.log(resp);
+        await redirect.cookies.set("atk", resp?.account?.access_token ?? "", {
+          httpOnly: false,
+          path: "/",
+          secure: false,
+          sameSite: "lax",
+        });
 
-      if (!user) {
-        try {
-          const resp = await fetch("http://localhost:3001/v1/user/create", {
-            method: "POST",
-            body: JSON.stringify(loggedInUser),
-          });
-          // if (AppDataSource.isInitialized === false) {
-          //   await AppDataSource.initialize();
-          // }
-
-          // const createUser: AdapterUser & { phoneVerified: null | Date } = {
-          //   email: loggedInUser.kakao_account.email,
-          //   emailVerified: null,
-          //   id: generateId(15),
-          //   phoneVerified: new Date(),
-          //   name: loggedInUser.kakao_account.profile.nickname,
-          //   image: loggedInUser.kakao_account.profile.thumbnail_image_url,
-          // };
-          // const user = await AppDataSource.createQueryBuilder()
-          //   .insert()
-          //   .into(UserEntity)
-          //   .values({
-          //     id: createUser.id,
-          //     name: createUser.name,
-          //     email: createUser.email,
-          //     emailVerified: new Date().toISOString(),
-          //     phone: null,
-          //     phoneVerified: new Date().toISOString(),
-          //     image: createUser.image,
-          //     role: null,
-          //   })
-          //   .execute();
-
-          // console.log(user);
-
-          // const account: AdapterAccount = {
-          //   userId: user.id,
-          //   type: "email",
-          //   provider: "kakao",
-          //   providerAccountId: loggedInUser.id,
-          // };
-          // const resp = await (adapter?.linkAccount &&
-          //   adapter.linkAccount(account));
-          // return NextResponse.json(resp, { status: 200 });
-        } catch (e) {
-          return NextResponse.json({ data: e }, { status: 500 });
-        }
+        return redirect;
       }
     }
 
@@ -124,34 +168,15 @@ export async function GET(request: Request): Promise<Response> {
     //     } as Partial<AdapterUser> & Pick<AdapterUser, "id">));
     // }
 
-    // // const authenticator = adapter.createAuthenticator({ id: "123456" });
-
-    // debugger;
-
-    // await redirect.cookies.set("rtk", refreshToken, {
-    //   httpOnly: true,
-    //   path: "/",
-    //   secure: true,
-    //   sameSite: "lax",
-    // });
-
-    await redirect.cookies.set("atk", accessToken, {
-      httpOnly: false,
-      path: "/",
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60,
-    });
-
     return redirect;
   } catch (err) {
     console.error(err);
-    const errorResponse = NextResponse.json(err, {
+    const erroruserMeApiResponse = NextResponse.json(err, {
       // data: JSON.stringify(err),
       status: 500,
     });
 
-    await errorResponse.cookies.set("rtk", "", {
+    await erroruserMeApiResponse.cookies.set("rtk", "", {
       httpOnly: true,
       path: "/",
       secure: true,
@@ -159,7 +184,7 @@ export async function GET(request: Request): Promise<Response> {
       maxAge: 0,
     });
 
-    await errorResponse.cookies.set("atk", "", {
+    await erroruserMeApiResponse.cookies.set("atk", "", {
       httpOnly: true,
       path: "/",
       secure: true,
@@ -167,7 +192,7 @@ export async function GET(request: Request): Promise<Response> {
       maxAge: 0,
     });
 
-    return errorResponse;
+    return erroruserMeApiResponse;
   }
 
   // TODO: Replace this with your own DB query.
@@ -177,7 +202,7 @@ export async function GET(request: Request): Promise<Response> {
   //   const sessionToken = generateSessionToken();
   //   const session = await createSession(sessionToken, existingUser.id);
   //   await setSessionTokenCookie(sessionToken, session.expiresAt);
-  //   return new Response(null, {
+  //   return new userMeApiResponse(null, {
   //     status: 302,
   //     headers: {
   //       Location: "/",
@@ -199,7 +224,7 @@ export async function GET(request: Request): Promise<Response> {
   //     maxAge: 60 * 10,
   //     sameSite: "lax",
   //   });
-  // (await cookies()).set("atk", accessToken, {
+  // (await cookies()).set("atk", kakaoAccessToken, {
   //   httpOnly: true,
   //   path: "/",
   //   secure: true,
@@ -215,8 +240,8 @@ export async function GET(request: Request): Promise<Response> {
 //   return token;
 // }
 
-export const deleteAccessTokenCookie = async (accessToken: string) => {
-  return (await cookies()).set("atk", accessToken, {
+export const deleteAccessTokenCookie = async (kakaoAccessToken: string) => {
+  return (await cookies()).set("atk", kakaoAccessToken, {
     httpOnly: true,
     path: "/",
     secure: true,

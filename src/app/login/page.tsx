@@ -1,7 +1,18 @@
 "use client";
+import { commonApi } from "@/utils/api";
 import * as arctic from "arctic";
+import { User } from "next-auth";
+import { useEffect, useState } from "react";
 
 const Page = () => {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      await commonApi.get("v1/user/me");
+    })();
+  }, []);
+
   return (
     <>
       <h1
